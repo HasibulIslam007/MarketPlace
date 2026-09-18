@@ -14,7 +14,7 @@ export default async function HomePage() {
         {featured.map((product) => (
           <Link key={product.id} href={`/products/${product.id}`} className="border rounded-lg p-4 hover:shadow-md transition">
             <h2 className="font-semibold">{product.name}</h2>
-            <p className="mt-2 font-bold">${product.price}</p>
+            <p className="mt-2 font-bold">৳{product.price}</p>
           </Link>
         ))}
       </div>

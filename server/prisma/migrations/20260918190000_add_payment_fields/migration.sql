@@ -1,0 +1,12 @@
+-- AlterTable
+ALTER TABLE "Order"
+ADD COLUMN "bankTranId" TEXT,
+ADD COLUMN "currency" TEXT NOT NULL DEFAULT 'BDT',
+ADD COLUMN "customerName" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "customerPhone" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "paidAt" TIMESTAMP(3),
+ADD COLUMN "paymentGateway" TEXT,
+ADD COLUMN "shippingAddress" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "shippingCity" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "shippingPostcode" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "validationId" TEXT;

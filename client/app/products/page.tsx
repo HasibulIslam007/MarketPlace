@@ -19,7 +19,7 @@ export default async function ProductsPage() {
             >
               <h2 className="font-semibold">{product.name}</h2>
               <p className="text-sm text-gray-600">{product.description}</p>
-              <p className="mt-2 font-bold">${product.price}</p>
+              <p className="mt-2 font-bold">৳{product.price}</p>
             </Link>
           ))}
         </div>

@@ -28,13 +28,24 @@ model Product {
 }
 
 model Order {
-  id         Int         @id @default(autoincrement())
-  user       User        @relation(fields: [userId], references: [id])
-  userId     Int
-  status     String      @default("pending")
-  total      Decimal
-  items      OrderItem[]
-  createdAt  DateTime    @default(now())
+  id               Int         @id @default(autoincrement())
+  user             User        @relation(fields: [userId], references: [id])
+  userId           Int
+  status           String      @default("pending")
+  total            Decimal
+  currency         String      @default("BDT")
+  tranId           String?     @unique
+  paymentGateway   String?
+  validationId     String?
+  bankTranId       String?
+  paidAt           DateTime?
+  customerName     String      @default("")
+  customerPhone    String      @default("")
+  shippingAddress  String      @default("")
+  shippingCity     String      @default("")
+  shippingPostcode String      @default("")
+  items            OrderItem[]
+  createdAt        DateTime    @default(now())
 }
 
 model OrderItem {

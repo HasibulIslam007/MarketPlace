@@ -1,3 +1,4 @@
+const { requireAuth, requireAdmin } = require("../middleware/auth");
 const express = require("express");
 const router = express.Router();
 const prisma = require("../prismaClient");
@@ -26,7 +27,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // CREATE product
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, description, price, stock, imageUrl } = req.body;
     const product = await prisma.product.create({
@@ -39,7 +40,7 @@ router.post("/", async (req, res) => {
 });
 
 // UPDATE product
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
     const product = await prisma.product.update({
       where: { id: Number(req.params.id) },
@@ -52,7 +53,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE product
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
     await prisma.product.delete({ where: { id: Number(req.params.id) } });
     res.status(204).send();
