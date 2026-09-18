@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import AdminGuard from "@/components/AdminGuard";
 import { useAuth } from "@/context/AuthContext";
-import { Product } from "@/types/product";
+import { Category, Product } from "@/types/product";
 
 interface Order {
   id: number;
@@ -18,10 +18,19 @@ interface NewProduct {
   description: string;
   price: string;
   stock: string;
+  imageUrl: string;
+  categoryId: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-const EMPTY_PRODUCT: NewProduct = { name: "", description: "", price: "", stock: "" };
+const EMPTY_PRODUCT: NewProduct = {
+  name: "",
+  description: "",
+  price: "",
+  stock: "",
+  imageUrl: "",
+  categoryId: "",
+};
 
 async function readError(response: Response, fallback: string) {
   const data = await response.json().catch(() => null);
@@ -31,8 +40,12 @@ async function readError(response: Response, fallback: string) {
 export default function AdminPage() {
   const { token } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [newProduct, setNewProduct] = useState<NewProduct>(EMPTY_PRODUCT);
+  const [newCategory, setNewCategory] = useState("");
+  const [imageFiles, setImageFiles] = useState<string[]>([]);
+  const [imageNames, setImageNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -44,8 +57,9 @@ export default function AdminPage() {
     setError("");
 
     try {
-      const [productsResponse, ordersResponse] = await Promise.all([
+      const [productsResponse, categoriesResponse, ordersResponse] = await Promise.all([
         fetch(`${API_URL}/api/products`, { cache: "no-store" }),
+        fetch(`${API_URL}/api/categories`, { cache: "no-store" }),
         fetch(`${API_URL}/api/orders`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
@@ -55,11 +69,15 @@ export default function AdminPage() {
       if (!productsResponse.ok) {
         throw new Error(await readError(productsResponse, "Unable to load products"));
       }
+      if (!categoriesResponse.ok) {
+        throw new Error(await readError(categoriesResponse, "Unable to load categories"));
+      }
       if (!ordersResponse.ok) {
         throw new Error(await readError(ordersResponse, "Unable to load orders"));
       }
 
       setProducts(await productsResponse.json());
+      setCategories(await categoriesResponse.json());
       setOrders(await ordersResponse.json());
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to load admin data");
@@ -86,6 +104,21 @@ export default function AdminPage() {
     setError("");
 
     try {
+      let imageUrls: string[] = [];
+      if (imageFiles.length > 0) {
+        const uploadResponse = await fetch(`${API_URL}/api/uploads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ files: imageFiles }),
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(await readError(uploadResponse, "Unable to upload product images"));
+        }
+
+        imageUrls = (await uploadResponse.json()).urls;
+      }
+
       const response = await fetch(`${API_URL}/api/products`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -93,6 +126,8 @@ export default function AdminPage() {
           ...newProduct,
           price: Number(newProduct.price),
           stock: Number(newProduct.stock),
+          categoryId: newProduct.categoryId ? Number(newProduct.categoryId) : null,
+          imageUrls,
         }),
       });
 
@@ -101,9 +136,62 @@ export default function AdminPage() {
       }
 
       setNewProduct({ ...EMPTY_PRODUCT });
+      setImageFiles([]);
+      setImageNames([]);
       await loadData();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to add product");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleImageChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    if (files.length > 5) {
+      setError("You can select up to 5 images per product");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const dataUrls = await Promise.all(files.map((file) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error(`Unable to read ${file.name}`));
+        reader.readAsDataURL(file);
+      })));
+
+      setError("");
+      setImageFiles(dataUrls);
+      setImageNames(files.map((file) => file.name));
+    } catch (fileError) {
+      setError(fileError instanceof Error ? fileError.message : "Unable to read images");
+    }
+  }
+
+  async function handleAddCategory(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !newCategory.trim()) return;
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newCategory }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response, "Unable to add category"));
+      }
+
+      setNewCategory("");
+      await loadData();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to add category");
     } finally {
       setSubmitting(false);
     }
@@ -162,6 +250,18 @@ export default function AdminPage() {
 
         <section>
           <h2 className="text-xl font-semibold mb-4">Products</h2>
+          <form onSubmit={handleAddCategory} className="flex gap-3 mb-4 border p-4 rounded">
+            <input
+              placeholder="New category name"
+              value={newCategory}
+              onChange={(event) => setNewCategory(event.target.value)}
+              className="border rounded p-2 flex-1"
+              required
+            />
+            <button type="submit" disabled={submitting} className="bg-gray-800 text-white rounded px-4 disabled:opacity-50">
+              Add Category
+            </button>
+          </form>
           <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 border p-4 rounded">
             <input
               placeholder="Name"
@@ -197,6 +297,45 @@ export default function AdminPage() {
               className="border rounded p-2"
               required
             />
+            <div className="sm:col-span-2 space-y-2">
+              <label className="block text-sm font-medium">Product images (up to 5)</label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                onChange={handleImageChange}
+                className="block w-full border rounded p-2"
+              />
+              <p className="text-xs text-gray-500">Upload JPG, PNG, WEBP, or GIF files. Maximum 10 MB each.</p>
+              {imageNames.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {imageFiles.map((image, index) => (
+                    <div key={imageNames[index]} className="border rounded p-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={image} alt={imageNames[index]} className="w-full h-20 object-cover rounded" />
+                      <p className="text-xs truncate mt-1">{imageNames[index]}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input
+                placeholder="Legacy image URL (optional)"
+                type="url"
+                value={newProduct.imageUrl}
+                onChange={(event) => setNewProduct({ ...newProduct, imageUrl: event.target.value })}
+                className="border rounded p-2 w-full"
+              />
+            </div>
+            <select
+              value={newProduct.categoryId}
+              onChange={(event) => setNewProduct({ ...newProduct, categoryId: event.target.value })}
+              className="border rounded p-2"
+            >
+              <option value="">No category</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
+            </select>
             <button type="submit" disabled={submitting} className="sm:col-span-2 bg-black text-white rounded p-2 disabled:opacity-50">
               {submitting ? "Adding..." : "Add Product"}
             </button>
@@ -206,7 +345,10 @@ export default function AdminPage() {
             {products.length === 0 && !loading && <p className="text-sm text-gray-600">No products found.</p>}
             {products.map((product) => (
               <div key={product.id} className="flex justify-between items-center border-b pb-2 gap-4">
-                <span>{product.name} — ৳{product.price} ({product.stock} in stock)</span>
+                <span>
+                  {product.name} — ৳{product.price} ({product.stock} in stock)
+                  {product.category && <span className="text-sm text-gray-500"> · {product.category.name}</span>}
+                </span>
                 <button onClick={() => handleDeleteProduct(product.id)} className="text-red-500 text-sm" type="button">
                   Delete
                 </button>

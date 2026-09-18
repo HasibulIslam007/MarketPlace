@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Product } from "@/types/product";
+import { Category, Product } from "@/types/product";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -24,8 +24,13 @@ async function apiFetch(path: string, options: RequestInit = {}) {
 }
 
 // ---- Public product routes ----
-export function getProducts(): Promise<Product[]> {
-  return apiFetch("/api/products");
+export function getProducts(categorySlug?: string): Promise<Product[]> {
+  const query = categorySlug ? `?category=${encodeURIComponent(categorySlug)}` : "";
+  return apiFetch(`/api/products${query}`);
+}
+
+export function getCategories(): Promise<Category[]> {
+  return apiFetch("/api/categories");
 }
 
 export async function getProduct(id: string): Promise<Product> {

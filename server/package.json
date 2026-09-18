@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.js"
+    "generate": "prisma generate --schema prisma/schema.prisma",
+    "dev": "npm run generate && nodemon index.js",
+    "start": "npm run generate && node index.js"
   },
   "keywords": [],
   "author": "",

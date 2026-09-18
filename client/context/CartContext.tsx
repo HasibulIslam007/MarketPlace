@@ -76,6 +76,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = useCallback(() => {
     setItems([]);
+    localStorage.removeItem("cart");
   }, []);
 
   const total = items.reduce(
