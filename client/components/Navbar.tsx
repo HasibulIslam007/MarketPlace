@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import SearchOverlay from "@/components/SearchOverlay";
 import { Category } from "@/types/product";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -72,6 +73,7 @@ export default function Navbar() {
   const { items } = useCart();
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
@@ -154,7 +156,16 @@ export default function Navbar() {
         </div>
 
         <div className="nav-actions">
-          <button type="button" className="icon-button" aria-label="Search">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Search"
+            aria-expanded={searchOpen}
+            onClick={() => {
+              closeMenu();
+              setSearchOpen(true);
+            }}
+          >
             <SearchIcon />
           </button>
           <button type="button" className="icon-button" aria-label="Toggle theme">
@@ -185,6 +196,17 @@ export default function Navbar() {
       {menuOpen && (
         <div className="mobile-menu">
           <nav className="mobile-menu-links" aria-label="Mobile navigation">
+            <button
+              type="button"
+              className="mobile-menu-search"
+              onClick={() => {
+                closeMenu();
+                setSearchOpen(true);
+              }}
+            >
+              <SearchIcon />
+              Search products
+            </button>
             <Link href="/" onClick={closeMenu}>Home</Link>
             <Link href="/products" onClick={closeMenu}>Shop</Link>
             <span className="mobile-menu-label">Categories</span>
@@ -206,6 +228,8 @@ export default function Navbar() {
           <div className="mobile-menu-account">{accountLinks}</div>
         </div>
       )}
+
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </header>
   );
 }

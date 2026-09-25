@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { productImage, searchProducts } from "@/lib/search";
 import { Product } from "@/types/product";
 
 export default function HomeProductSearch({ products }: { products: Product[] }) {
@@ -11,14 +12,7 @@ export default function HomeProductSearch({ products }: { products: Product[] })
   const matchingProducts = useMemo(() => {
     if (!normalizedSearchTerm) return products.slice(0, 3);
 
-    return products.filter((product) => {
-      const searchableText = [product.name, product.description, product.category?.name]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return searchableText.includes(normalizedSearchTerm);
-    });
+    return searchProducts(products, normalizedSearchTerm);
   }, [normalizedSearchTerm, products]);
 
   return (
@@ -61,10 +55,10 @@ export default function HomeProductSearch({ products }: { products: Product[] })
               href={`/products/${product.id}`}
               className="border rounded-lg p-4 hover:shadow-md transition"
             >
-              {(product.images?.[0]?.url || product.imageUrl) ? (
+              {productImage(product) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={product.images?.[0]?.url || product.imageUrl || ""}
+                  src={productImage(product)}
                   alt={product.name}
                   className="w-full h-40 object-cover rounded mb-3"
                 />
@@ -79,6 +73,17 @@ export default function HomeProductSearch({ products }: { products: Product[] })
             </Link>
           ))}
         </div>
+      )}
+
+      {normalizedSearchTerm && matchingProducts.length > 0 && (
+        <p className="mt-2 text-center">
+          <Link
+            href={`/search?q=${encodeURIComponent(searchTerm.trim())}`}
+            className="underline font-semibold"
+          >
+            View all results for “{searchTerm.trim()}” →
+          </Link>
+        </p>
       )}
     </section>
   );
