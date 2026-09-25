@@ -8,20 +8,28 @@ const app = express();
 // Trust Vercel's proxy so req.protocol / req.get("host") are correct.
 app.set("trust proxy", 1);
 
-// Allow the deployed storefront (and local dev) to call the API.
-// Set CLIENT_URL=https://your-store.vercel.app in production.
+// Allow the deployed storefront(s) (and local dev) to call the API.
+// CLIENT_URL can be a single URL or a comma-separated list, e.g.
+// CLIENT_URL=https://store.vercel.app,https://store-abc.vercel.app
 const allowedOrigins = [
-  process.env.CLIENT_URL,
+  ...(process.env.CLIENT_URL || "")
+    .split(",")
+    .map((s) => s.trim().replace(/\/$/, ""))
+    .filter(Boolean),
   "http://localhost:3000",
   "http://127.0.0.1:3000",
-].filter(Boolean);
+];
 
 app.use(
   cors({
     origin(origin, callback) {
       // Allow server-to-server / curl / SSLCOMMERZ callbacks with no Origin header.
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      const clean = origin.replace(/\/$/, "");
+      // Allow any *.vercel.app preview URL of your own project to avoid
+      // breaking on preview deployments; tighten to exact domains if needed.
+      if (allowedOrigins.includes(clean)) return callback(null, true);
+      if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(clean)) return callback(null, true);
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
