@@ -31,17 +31,20 @@ export default function SignupPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        setError(data.error || "Something went wrong");
+        setError(data?.error || "Something went wrong");
         return;
       }
 
       toast.success("Account created", "Sign in with your new credentials to continue.");
       router.push("/login");
-    } catch {
-      setError("We could not create your account. Please try again.");
+    } catch (error) {
+      console.error("Signup failed:", error);
+      setError(
+        `We could not reach the server at ${API_URL}. Check NEXT_PUBLIC_API_URL and CORS (CLIENT_URL), then try again.`
+      );
     } finally {
       setLoading(false);
     }

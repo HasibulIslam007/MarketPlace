@@ -5,6 +5,9 @@ require("dotenv").config();
 
 const app = express();
 
+// Trust Vercel's proxy so req.protocol / req.get("host") are correct.
+app.set("trust proxy", 1);
+
 // Allow the deployed storefront (and local dev) to call the API.
 // Set CLIENT_URL=https://your-store.vercel.app in production.
 const allowedOrigins = [

@@ -9,6 +9,13 @@ router.post("/signup", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Name, email and password are required" });
+    }
+    if (String(password).length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return res.status(400).json({ error: "Email already in use" });
 
@@ -19,7 +26,8 @@ router.post("/signup", async (req, res) => {
 
     res.status(201).json({ id: user.id, name: user.name, email: user.email });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Signup failed:", err);
+    res.status(500).json({ error: "Unable to create account. Check DATABASE_URL / Prisma." });
   }
 });
 
