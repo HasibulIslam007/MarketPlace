@@ -49,6 +49,13 @@ model Category {
   createdAt DateTime  @default(now())
 }
 
+model HomePageSettings {
+  id           Int      @id @default(1)
+  heroImageUrl String?
+  heroImageAlt String   @default("Featured sneaker")
+  updatedAt    DateTime @updatedAt
+}
+
 model Order {
   id               Int         @id @default(autoincrement())
   user             User        @relation(fields: [userId], references: [id])

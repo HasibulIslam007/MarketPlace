@@ -2,16 +2,22 @@ import { notFound } from "next/navigation";
 import { Category, Product } from "@/types/product";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const PUBLIC_CACHE_SECONDS = 60;
+
+type ApiFetchOptions = RequestInit & {
+  next?: { revalidate?: number; tags?: string[] };
+};
 
 // ---- Helper: does the actual fetching + error handling ----
-async function apiFetch(path: string, options: RequestInit = {}) {
+async function apiFetch(path: string, options: ApiFetchOptions = {}, revalidate?: number) {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
     },
-    cache: "no-store",
+    cache: revalidate ? "force-cache" : "no-store",
+    ...(revalidate ? { next: { revalidate } } : {}),
   });
 
   const data = await res.json().catch(() => null);
@@ -26,15 +32,28 @@ async function apiFetch(path: string, options: RequestInit = {}) {
 // ---- Public product routes ----
 export function getProducts(categorySlug?: string): Promise<Product[]> {
   const query = categorySlug ? `?category=${encodeURIComponent(categorySlug)}` : "";
-  return apiFetch(`/api/products${query}`);
+  return apiFetch(`/api/products${query}`, {}, PUBLIC_CACHE_SECONDS);
 }
 
 export function getCategories(): Promise<Category[]> {
-  return apiFetch("/api/categories");
+  return apiFetch("/api/categories", {}, PUBLIC_CACHE_SECONDS);
+}
+
+export interface HomePageSettings {
+  id: number;
+  heroImageUrl: string | null;
+  heroImageAlt: string;
+}
+
+export function getHomePageSettings(): Promise<HomePageSettings> {
+  return apiFetch("/api/homepage-settings", {}, PUBLIC_CACHE_SECONDS);
 }
 
 export async function getProduct(id: string): Promise<Product> {
-  const res = await fetch(`${API_URL}/api/products/${id}`, { cache: "no-store" });
+  const res = await fetch(`${API_URL}/api/products/${id}`, {
+    cache: "force-cache",
+    next: { revalidate: PUBLIC_CACHE_SECONDS },
+  });
 
   if (res.status === 404) notFound();
   const data = await res.json().catch(() => null);

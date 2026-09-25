@@ -22,6 +22,12 @@ interface NewProduct {
   categoryId: string;
 }
 
+interface HomePageSettings {
+  id: number;
+  heroImageUrl: string | null;
+  heroImageAlt: string;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 const EMPTY_PRODUCT: NewProduct = {
   name: "",
@@ -30,6 +36,11 @@ const EMPTY_PRODUCT: NewProduct = {
   stock: "",
   imageUrl: "",
   categoryId: "",
+};
+const EMPTY_HERO_SETTINGS: HomePageSettings = {
+  id: 1,
+  heroImageUrl: null,
+  heroImageAlt: "Featured sneaker",
 };
 
 async function readError(response: Response, fallback: string) {
@@ -42,6 +53,9 @@ export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [heroSettings, setHeroSettings] = useState<HomePageSettings>(EMPTY_HERO_SETTINGS);
+  const [heroImageFile, setHeroImageFile] = useState("");
+  const [heroImageName, setHeroImageName] = useState("");
   const [newProduct, setNewProduct] = useState<NewProduct>(EMPTY_PRODUCT);
   const [newCategory, setNewCategory] = useState("");
   const [imageFiles, setImageFiles] = useState<string[]>([]);
@@ -49,6 +63,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [savingHero, setSavingHero] = useState(false);
+  const [heroSaved, setHeroSaved] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -57,13 +73,14 @@ export default function AdminPage() {
     setError("");
 
     try {
-      const [productsResponse, categoriesResponse, ordersResponse] = await Promise.all([
+      const [productsResponse, categoriesResponse, ordersResponse, heroSettingsResponse] = await Promise.all([
         fetch(`${API_URL}/api/products`, { cache: "no-store" }),
         fetch(`${API_URL}/api/categories`, { cache: "no-store" }),
         fetch(`${API_URL}/api/orders`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         }),
+        fetch(`${API_URL}/api/homepage-settings`, { cache: "no-store" }),
       ]);
 
       if (!productsResponse.ok) {
@@ -75,10 +92,14 @@ export default function AdminPage() {
       if (!ordersResponse.ok) {
         throw new Error(await readError(ordersResponse, "Unable to load orders"));
       }
+      if (!heroSettingsResponse.ok) {
+        throw new Error(await readError(heroSettingsResponse, "Unable to load homepage settings"));
+      }
 
       setProducts(await productsResponse.json());
       setCategories(await categoriesResponse.json());
       setOrders(await ordersResponse.json());
+      setHeroSettings(await heroSettingsResponse.json());
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to load admin data");
     } finally {
@@ -170,6 +191,75 @@ export default function AdminPage() {
     }
   }
 
+  async function handleHeroImageChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error(`Unable to read ${file.name}`));
+        reader.readAsDataURL(file);
+      });
+
+      setError("");
+      setHeroSaved(false);
+      setHeroImageFile(dataUrl);
+      setHeroImageName(file.name);
+    } catch (fileError) {
+      setError(fileError instanceof Error ? fileError.message : "Unable to read hero image");
+    }
+  }
+
+  async function handleSaveHero(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) return;
+
+    setSavingHero(true);
+    setHeroSaved(false);
+    setError("");
+
+    try {
+      let heroImageUrl = heroSettings.heroImageUrl?.trim() || "";
+      if (heroImageFile) {
+        const uploadResponse = await fetch(`${API_URL}/api/uploads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ files: [heroImageFile] }),
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(await readError(uploadResponse, "Unable to upload hero image"));
+        }
+
+        heroImageUrl = (await uploadResponse.json()).urls[0];
+      }
+
+      const response = await fetch(`${API_URL}/api/homepage-settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          heroImageUrl,
+          heroImageAlt: heroSettings.heroImageAlt,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response, "Unable to save homepage settings"));
+      }
+
+      setHeroSettings(await response.json());
+      setHeroImageFile("");
+      setHeroImageName("");
+      setHeroSaved(true);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to save homepage settings");
+    } finally {
+      setSavingHero(false);
+    }
+  }
+
   async function handleAddCategory(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token || !newCategory.trim()) return;
@@ -247,6 +337,62 @@ export default function AdminPage() {
 
         {error && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         {loading && <p className="text-sm text-gray-600">Loading dashboard...</p>}
+
+        <section>
+          <h2 className="text-xl font-semibold mb-4">Homepage Hero</h2>
+          <form onSubmit={handleSaveHero} className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 border p-4 rounded">
+            <div className="rounded bg-gray-100 overflow-hidden aspect-[4/3]">
+              {(heroImageFile || heroSettings.heroImageUrl) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={heroImageFile || heroSettings.heroImageUrl || ""}
+                  alt={heroSettings.heroImageAlt}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="h-full grid place-items-center text-sm text-gray-500 p-4 text-center">Current product image fallback</div>
+              )}
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">Choose the image displayed in the red hero card on the public homepage.</p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleHeroImageChange}
+                className="border rounded p-2 w-full"
+              />
+              {heroImageName && <p className="text-xs text-gray-500">Selected: {heroImageName}</p>}
+              <input
+                placeholder="Or paste an image URL"
+                type="url"
+                value={heroSettings.heroImageUrl || ""}
+                onChange={(event) => {
+                  setHeroSaved(false);
+                  setHeroImageFile("");
+                  setHeroSettings({ ...heroSettings, heroImageUrl: event.target.value });
+                }}
+                className="border rounded p-2 w-full"
+              />
+              <input
+                placeholder="Image alt text"
+                value={heroSettings.heroImageAlt}
+                onChange={(event) => {
+                  setHeroSaved(false);
+                  setHeroSettings({ ...heroSettings, heroImageAlt: event.target.value });
+                }}
+                className="border rounded p-2 w-full"
+                maxLength={160}
+                required
+              />
+              <div className="flex items-center gap-3">
+                <button type="submit" disabled={savingHero} className="bg-black text-white rounded px-4 py-2 disabled:opacity-50">
+                  {savingHero ? "Saving..." : "Save Hero Image"}
+                </button>
+                {heroSaved && <span className="text-sm text-green-700">Homepage updated.</span>}
+              </div>
+            </div>
+          </form>
+        </section>
 
         <section>
           <h2 className="text-xl font-semibold mb-4">Products</h2>
