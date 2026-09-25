@@ -1,13 +1,26 @@
 import Link from "next/link";
+import { Page } from "@/components/ui/Page";
+import { ResultState } from "@/components/ui/States";
 
 export default function PaymentFailurePage() {
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12 text-center">
-      <h1 className="text-3xl font-bold mb-4">Payment was not completed</h1>
-      <p className="mb-6">Your order was not marked as paid. You can try again from your cart.</p>
-      <Link href="/cart" className="inline-block bg-black text-white rounded px-6 py-2">
-        Return to cart
-      </Link>
-    </div>
+    <Page narrow>
+      <ResultState
+        tone="danger"
+        icon="alert"
+        title="Payment was not completed"
+        text="Your order was not marked as paid. You can try again from your cart — no charge was made."
+        action={
+          <>
+            <Link href="/cart" className="btn btn-primary">
+              Return to cart
+            </Link>
+            <Link href="/products" className="btn btn-secondary">
+              Keep shopping
+            </Link>
+          </>
+        }
+      />
+    </Page>
   );
 }

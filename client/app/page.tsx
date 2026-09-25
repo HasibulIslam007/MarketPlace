@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCategories, getHomePageSettings, getProducts } from "@/lib/api";
 import HomeProductSearch from "@/components/HomeProductSearch";
 import { Category, Product } from "@/types/product";
+import Icon, { type IconName } from "@/components/ui/Icon";
 
 function BoltIcon() {
   return <span aria-hidden="true" className="bolt-icon">ϟ</span>;
@@ -15,21 +16,9 @@ function ArrowIcon() {
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="m5 12 4 4L19 6" />
-    </svg>
-  );
-}
-
-function ReturnsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M6 8a7 7 0 1 1-1 7" />
-      <path d="M6 4v4h4M18 16v4h-4" />
-    </svg>
-  );
+function BenefitBoxIcon({ name, fallback }: { name?: string; fallback: "check" | "refresh" }) {
+  const iconName = (name || fallback) as IconName;
+  return <Icon name={iconName} size={23} />;
 }
 
 function CategoryArrow() {
@@ -142,9 +131,16 @@ export default async function HomePage() {
         <div className="hero-grid" />
         <div className="hero-content">
           <div className="hero-copy">
-            <div className="collection-pill"><BoltIcon /> New Collection 2032</div>
-            <h1 id="hero-heading">Step Into<br /><span>Your Best</span></h1>
-            <p className="hero-description">Premium footwear for every step of your journey. From<br className="desktop-break" /> athletic performance to everyday comfort.</p>
+            <div className="collection-pill">
+              <BoltIcon /> {homePageSettings.heroBadge || "New Collection 2032"}
+            </div>
+            <h1 id="hero-heading">
+              {homePageSettings.heroTitle || "Step Into"}<br />
+              <span>{homePageSettings.heroTitleAccent || "Your Best"}</span>
+            </h1>
+            <p className="hero-description">
+              {homePageSettings.heroSubtitle || "Premium footwear for every step of your journey. From athletic performance to everyday comfort."}
+            </p>
             <div className="hero-actions">
               <Link href="/products" className="primary-button">Shop Now <ArrowIcon /></Link>
               <Link href="/products" className="secondary-button">Browse Categories</Link>
@@ -162,10 +158,30 @@ export default async function HomePage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={featuredImage} alt={featuredImageAlt} />
               ) : <SneakerIllustration />}
-              <div className="discount-badge"><small>UP TO</small><strong>40%</strong><small>OFF</small></div>
+              <div className="discount-badge">
+                <small>{homePageSettings.discountTop || "UP TO"}</small>
+                <strong>{homePageSettings.discountValue || "40%"}</strong>
+                <small>{homePageSettings.discountBottom || "OFF"}</small>
+              </div>
             </div>
-            <div className="benefit-card shipping-card"><span className="benefit-icon"><CheckIcon /></span><span><strong>Free Shipping</strong><small>Orders over $75</small></span></div>
-            <div className="benefit-card returns-card"><span className="benefit-icon"><ReturnsIcon /></span><span><strong>Easy Returns</strong><small>60-day guarantee</small></span></div>
+            <div className="benefit-card shipping-card">
+              <span className="benefit-icon">
+                <BenefitBoxIcon name={homePageSettings.card1Icon} fallback="check" />
+              </span>
+              <span>
+                <strong>{homePageSettings.card1Title || "Free Shipping"}</strong>
+                <small>{homePageSettings.card1Subtitle || "Orders over $75"}</small>
+              </span>
+            </div>
+            <div className="benefit-card returns-card">
+              <span className="benefit-icon">
+                <BenefitBoxIcon name={homePageSettings.card2Icon} fallback="refresh" />
+              </span>
+              <span>
+                <strong>{homePageSettings.card2Title || "Easy Returns"}</strong>
+                <small>{homePageSettings.card2Subtitle || "60-day guarantee"}</small>
+              </span>
+            </div>
           </div>
         </div>
         <div className="explore-hint"><span>EXPLORE</span><span className="down-arrow">↓</span></div>
@@ -175,7 +191,6 @@ export default async function HomePage() {
 
       <section className="catalog-preview" aria-label="Featured products">
         <HomeProductSearch products={products} />
-        <Link href="/products" className="catalog-link">View all products →</Link>
       </section>
     </main>
   );

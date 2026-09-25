@@ -1,3 +1,10 @@
+import { Page } from "@/components/ui/Page";
+import { LoadingState } from "@/components/ui/States";
+
 export default function AppLoading() {
-  return <p className="max-w-6xl mx-auto px-4 py-8">Loading store...</p>;
+  return (
+    <Page>
+      <LoadingState label="Loading ZMart…" />
+    </Page>
+  );
 }

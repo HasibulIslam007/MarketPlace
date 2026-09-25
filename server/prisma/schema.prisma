@@ -50,10 +50,23 @@ model Category {
 }
 
 model HomePageSettings {
-  id           Int      @id @default(1)
-  heroImageUrl String?
-  heroImageAlt String   @default("Featured sneaker")
-  updatedAt    DateTime @updatedAt
+  id              Int      @id @default(1)
+  heroImageUrl    String?
+  heroImageAlt    String   @default("Featured sneaker")
+  heroBadge       String   @default("New Collection 2032")
+  heroTitle       String   @default("Step Into")
+  heroTitleAccent String   @default("Your Best")
+  heroSubtitle    String   @default("Premium footwear for every step of your journey. From athletic performance to everyday comfort.")
+  discountTop     String   @default("UP TO")
+  discountValue   String   @default("40%")
+  discountBottom  String   @default("OFF")
+  card1Icon       String   @default("truck")
+  card1Title      String   @default("Free Shipping")
+  card1Subtitle   String   @default("Orders over $75")
+  card2Icon       String   @default("refresh")
+  card2Title      String   @default("Easy Returns")
+  card2Subtitle   String   @default("60-day guarantee")
+  updatedAt       DateTime @updatedAt
 }
 
 model Order {

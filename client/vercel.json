@@ -1,0 +1,9 @@
+{
+  // Deploy ONLY the Next.js storefront from this repo on Vercel.
+  // Root Directory = client, Framework = Next.js (auto-detected).
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "framework": "nextjs"
+}

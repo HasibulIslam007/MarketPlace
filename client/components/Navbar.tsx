@@ -1,80 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import SearchOverlay from "@/components/SearchOverlay";
+import Icon from "@/components/ui/Icon";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
-import SearchOverlay from "@/components/SearchOverlay";
 import { Category } from "@/types/product";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="m16 16 4.5 4.5" />
-    </svg>
-  );
-}
-
-function SunIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="3.5" />
-      <path d="M12 2.5v2M12 19.5v2M4.58 4.58l1.42 1.42M18 18l1.42 1.42M2.5 12h2M19.5 12h2M4.58 19.42 6 18M18 6l1.42-1.42" />
-    </svg>
-  );
-}
-
-function HeartIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M20.84 8.61c0 5.08-8.84 10.39-8.84 10.39S3.16 13.69 3.16 8.61A4.61 4.61 0 0 1 12 6.28a4.61 4.61 0 0 1 8.84 2.33Z" />
-    </svg>
-  );
-}
-
-function BagIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 8.5h14l1 12H4l1-12Z" />
-      <path d="M8.5 8.5V6a3.5 3.5 0 0 1 7 0v2.5" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-
-function MenuIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 7h16M4 12h16M4 17h16" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M6 6l12 12M18 6 6 18" />
-    </svg>
-  );
-}
-
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { items } = useCart();
+  const pathname = usePathname();
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const isShopActive = pathname === "/products" || pathname.startsWith("/products/");
+  const isCheckoutActive = pathname === "/checkout" || pathname === "/cart";
 
   useEffect(() => {
     let active = true;
@@ -132,11 +78,17 @@ export default function Navbar() {
         </Link>
 
         <div className="nav-links">
-          <Link href="/products">Shop</Link>
+          <Link
+            href="/products"
+            className={isShopActive ? "is-active" : undefined}
+            aria-current={isShopActive ? "page" : undefined}
+          >
+            Shop
+          </Link>
           <div className="nav-dropdown">
             <button type="button" className="nav-dropdown-trigger" aria-haspopup="true">
               Categories
-              <ChevronDownIcon />
+              <Icon name="chevron-down" size={14} />
             </button>
             <div className="nav-dropdown-menu">
               <Link href="/products">All Products</Link>
@@ -152,7 +104,13 @@ export default function Navbar() {
           </div>
           <Link href="/products">New Arrivals</Link>
           <Link href="/products">Sale</Link>
-          <Link href="/checkout">Checkout</Link>
+          <Link
+            href="/checkout"
+            className={isCheckoutActive ? "is-active" : undefined}
+            aria-current={isCheckoutActive ? "page" : undefined}
+          >
+            Checkout
+          </Link>
         </div>
 
         <div className="nav-actions">
@@ -166,16 +124,16 @@ export default function Navbar() {
               setSearchOpen(true);
             }}
           >
-            <SearchIcon />
+            <Icon name="search" />
           </button>
           <button type="button" className="icon-button" aria-label="Toggle theme">
-            <SunIcon />
+            <Icon name="sun" />
           </button>
           <button type="button" className="icon-button" aria-label="Wishlist">
-            <HeartIcon />
+            <Icon name="heart" />
           </button>
           <Link href="/cart" className="icon-button cart-button" aria-label={`Cart with ${cartCount} items`} onClick={closeMenu}>
-            <BagIcon />
+            <Icon name="bag" />
             {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
           </Link>
         </div>
@@ -189,7 +147,7 @@ export default function Navbar() {
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
         >
-          {menuOpen ? <CloseIcon /> : <MenuIcon />}
+          <Icon name={menuOpen ? "close" : "menu"} />
         </button>
       </nav>
 
@@ -204,11 +162,11 @@ export default function Navbar() {
                 setSearchOpen(true);
               }}
             >
-              <SearchIcon />
+              <Icon name="search" size={18} />
               Search products
             </button>
             <Link href="/" onClick={closeMenu}>Home</Link>
-            <Link href="/products" onClick={closeMenu}>Shop</Link>
+            <Link href="/products" className={isShopActive ? "is-active" : undefined} onClick={closeMenu}>Shop</Link>
             <span className="mobile-menu-label">Categories</span>
             <Link href="/products" className="mobile-menu-sub" onClick={closeMenu}>All Products</Link>
             {categories.map((category) => (

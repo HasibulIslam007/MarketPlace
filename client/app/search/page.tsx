@@ -2,59 +2,15 @@ import type { Metadata } from "next";
 import Form from "next/form";
 import Link from "next/link";
 import { getProducts } from "@/lib/api";
-import { productImage, searchProducts } from "@/lib/search";
-import type { Product } from "@/types/product";
+import Icon from "@/components/ui/Icon";
+import { Breadcrumbs, Page, PageHeader } from "@/components/ui/Page";
+import ProductCard from "@/components/ui/ProductCard";
+import { EmptyState } from "@/components/ui/States";
+import { searchProducts } from "@/lib/search";
 
 export const metadata: Metadata = {
   title: "Search | ZMart",
 };
-
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="m16 16 4.5 4.5" />
-    </svg>
-  );
-}
-
-function ArrowIcon() {
-  return (
-    <svg viewBox="0 0 18 18" aria-hidden="true">
-      <path d="M2 9h13M10 4l5 5-5 5" />
-    </svg>
-  );
-}
-
-function ProductCard({ product }: { product: Product }) {
-  const image = productImage(product);
-
-  return (
-    <Link href={`/products/${product.id}`} className="product-card">
-      <span className="product-card-media">
-        {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt={product.name} />
-        ) : (
-          <span className="product-card-media-fallback" aria-hidden="true">
-            {product.name.charAt(0)}
-          </span>
-        )}
-        {product.category && <span className="product-card-badge">{product.category.name}</span>}
-      </span>
-      <span className="product-card-body">
-        <span className="product-card-name">{product.name}</span>
-        <p className="product-card-desc">{product.description}</p>
-        <span className="product-card-foot">
-          <span className="product-card-price">৳{product.price}</span>
-          <span className="product-card-cta">
-            View <ArrowIcon />
-          </span>
-        </span>
-      </span>
-    </Link>
-  );
-}
 
 export default async function SearchPage({
   searchParams,
@@ -69,74 +25,66 @@ export default async function SearchPage({
   const results = query ? searchProducts(products, query) : [];
 
   return (
-    <main className="search-page">
-      <div className="search-page-inner">
-        <header className="search-page-header">
-          <span className="search-page-eyebrow">Product search</span>
-          <h1>Find your next pair</h1>
-          <p className="search-page-subtitle">
-            Search the whole ZMart catalogue by name, description or category.
-          </p>
-          <Form className="search-form" action="/search" role="search">
-            <span className="search-form-icon">
-              <SearchIcon />
-            </span>
-            <input
-              className="search-input"
-              type="search"
-              name="q"
-              defaultValue={query}
-              placeholder="Search products, categories, deals..."
-              autoComplete="off"
-              aria-label="Search products"
-            />
-            <button type="submit" className="search-submit">
-              Search
-            </button>
-          </Form>
-        </header>
+    <Page>
+      <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Search" }]} />
 
-        {query ? (
-          results.length > 0 ? (
-            <section className="search-page-results" aria-label="Search results">
-              <div className="search-page-summary">
-                <h2>
-                  {results.length} result{results.length === 1 ? "" : "s"} for “{query}”
-                </h2>
-                <Link href="/products" className="search-page-browse">
-                  Browse all products
-                </Link>
-              </div>
-              <div className="search-page-grid">
-                {results.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            </section>
-          ) : (
-            <section className="search-empty" aria-live="polite">
-              <h2>No products found</h2>
-              <p>
-                We couldn’t find anything for “{query}”. Try a shorter keyword or browse the full
-                catalogue.
-              </p>
-              <div className="search-chips search-empty-chips">
-                <Link href="/products" className="search-chip">
-                  All products
-                </Link>
-              </div>
-            </section>
-          )
-        ) : (
-          <section className="search-empty">
-            <h2>Start typing to search</h2>
-            <p>
-              Look up running shoes, formal pairs, kids’ favourites and more — matching products
-              appear as cards below.
-            </p>
-          </section>
-        )}
+      <PageHeader
+        eyebrow="Product search"
+        title={query ? `Results for “${query}”` : "Find your next pair"}
+        subtitle={
+          query
+            ? `${results.length} product${results.length === 1 ? "" : "s"} matched your search`
+            : "Search the whole ZMart catalogue by name, description or category."
+        }
+      />
+
+      <div className="z-toolbar">
+        <Form className="search-form z-search-field" action="/search" role="search">
+          <span className="search-form-icon">
+            <Icon name="search" />
+          </span>
+          <input
+            className="search-input"
+            type="search"
+            name="q"
+            defaultValue={query}
+            placeholder="Search products, categories, deals..."
+            autoComplete="off"
+            aria-label="Search products"
+          />
+          <button type="submit" className="search-submit">
+            Search
+          </button>
+        </Form>
       </div>
-    </main>
+
+      {query ? (
+        results.length > 0 ? (
+          <div className="z-cards">
+            {results.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon="search"
+            title="No products found"
+            text={`We couldn’t find anything for “${query}”. Try a shorter keyword or browse the full catalogue.`}
+            action={
+              <Link href="/products" className="btn btn-secondary">
+                Browse all products
+              </Link>
+            }
+          />
+        )
+      ) : (
+        <EmptyState
+          icon="sparkles"
+          title="Start typing to search"
+          text="Look up running shoes, formal pairs, kids’ favourites and more — matching products appear here as cards."
+        />
+      )}
+    </Page>
   );
 }
+

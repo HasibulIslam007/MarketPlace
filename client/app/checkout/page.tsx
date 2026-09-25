@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import Button from "@/components/ui/Button";
+import { Card, CardBody, CardHead } from "@/components/ui/Card";
+import { Field, Input } from "@/components/ui/Field";
+import { Breadcrumbs, Page, PageHeader } from "@/components/ui/Page";
+import { Banner, EmptyState, LoadingState } from "@/components/ui/States";
+import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 
@@ -10,6 +16,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 export default function CheckoutPage() {
   const { token, isReady: authReady } = useAuth();
   const { items, total, isReady: cartReady } = useCart();
+  const toast = useToast();
   const [shipping, setShipping] = useState({
     name: "",
     email: "",
@@ -58,60 +65,146 @@ export default function CheckoutPage() {
 
       window.location.href = data.paymentUrl;
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Failed to create order");
+      const message = requestError instanceof Error ? requestError.message : "Failed to create order";
+      setError(message);
+      toast.error("Checkout failed", message);
       setLoading(false);
     }
   }
 
   if (!authReady || !cartReady) {
-    return <div className="max-w-3xl mx-auto px-4 py-12">Loading checkout...</div>;
+    return (
+      <Page narrow>
+        <LoadingState label="Preparing checkout…" />
+      </Page>
+    );
   }
 
   if (items.length === 0) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-12">
-        <p>Your cart is empty.</p>
-        <Link href="/products" className="underline">Browse products →</Link>
-      </div>
+      <Page narrow>
+        <EmptyState
+          icon="bag"
+          title="Nothing to check out"
+          text="Your cart is empty. Add a product first and then come back to complete your order."
+          action={
+            <Link href="/products" className="btn btn-primary">
+              Browse products
+            </Link>
+          }
+        />
+      </Page>
     );
   }
 
   if (!token) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-2xl font-bold mb-4">Log in to checkout</h1>
-        <p className="mb-4">You need an account before placing an order.</p>
-        <Link
-          href="/login?redirect=%2Fcheckout"
-          className="inline-block bg-black text-white rounded px-6 py-2"
-        >
-          Log In
-        </Link>
-      </div>
+      <Page narrow>
+        <EmptyState
+          icon="lock"
+          title="Log in to checkout"
+          text="You need an account before placing an order. It only takes a few seconds."
+          action={
+            <>
+              <Link href="/login?redirect=%2Fcheckout" className="btn btn-primary">
+                Log in
+              </Link>
+              <Link href="/signup" className="btn btn-secondary">
+                Create account
+              </Link>
+            </>
+          }
+        />
+      </Page>
     );
   }
 
-  return (
-    <div className="max-w-md mx-auto px-4 py-12">
-      <h1 className="text-2xl font-bold mb-6">Checkout</h1>
-      <p className="mb-4 font-semibold">Total: ৳{total.toFixed(2)}</p>
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input name="name" placeholder="Full Name" value={shipping.name} onChange={handleChange} className="w-full border rounded p-2" required />
-        <input name="email" type="email" placeholder="Email" value={shipping.email} onChange={handleChange} className="w-full border rounded p-2" required />
-        <input name="phone" type="tel" placeholder="Phone" value={shipping.phone} onChange={handleChange} className="w-full border rounded p-2" required />
-        <input name="address" placeholder="Address" value={shipping.address} onChange={handleChange} className="w-full border rounded p-2" required />
-        <input name="city" placeholder="City" value={shipping.city} onChange={handleChange} className="w-full border rounded p-2" required />
-        <input name="postcode" placeholder="Postcode" value={shipping.postcode} onChange={handleChange} className="w-full border rounded p-2" required />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-black text-white rounded p-3 disabled:opacity-50"
-        >
-          {loading ? "Redirecting to payment..." : "Pay Now"}
-        </button>
-      </form>
-    </div>
+  return (
+    <Page>
+      <Breadcrumbs
+        items={[{ label: "Home", href: "/" }, { label: "Cart", href: "/cart" }, { label: "Checkout" }]}
+      />
+      <PageHeader
+        eyebrow="Secure checkout"
+        title="Shipping details"
+        subtitle={`${itemCount} item${itemCount === 1 ? "" : "s"} · you will be redirected to payment`}
+      />
+
+      <div className="z-split">
+        <Card>
+          <CardHead title="Delivery information" subtitle="We use this to deliver and confirm your order." />
+          <CardBody>
+            <form className="z-form-grid" onSubmit={handleSubmit}>
+              <div className="z-form-grid z-form-grid-2">
+                <Field label="Full name" htmlFor="name" required>
+                  <Input id="name" name="name" placeholder="Jane Doe" value={shipping.name} onChange={handleChange} required />
+                </Field>
+                <Field label="Email address" htmlFor="email" required>
+                  <Input id="email" name="email" type="email" placeholder="you@example.com" value={shipping.email} onChange={handleChange} required />
+                </Field>
+              </div>
+
+              <div className="z-form-grid z-form-grid-2">
+                <Field label="Phone" htmlFor="phone" required>
+                  <Input id="phone" name="phone" type="tel" placeholder="01XXXXXXXXX" value={shipping.phone} onChange={handleChange} required />
+                </Field>
+                <Field label="Postcode" htmlFor="postcode" required>
+                  <Input id="postcode" name="postcode" placeholder="1207" value={shipping.postcode} onChange={handleChange} required />
+                </Field>
+              </div>
+
+              <Field label="Street address" htmlFor="address" required>
+                <Input id="address" name="address" placeholder="House, road, area" value={shipping.address} onChange={handleChange} required />
+              </Field>
+
+              <Field label="City" htmlFor="city" required>
+                <Input id="city" name="city" placeholder="Dhaka" value={shipping.city} onChange={handleChange} required />
+              </Field>
+
+              {error ? <Banner tone="danger">{error}</Banner> : null}
+
+              <Button type="submit" size="lg" loading={loading}>
+                {loading ? "Redirecting to payment…" : "Pay now"}
+              </Button>
+            </form>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHead title="Order summary" subtitle={`${items.length} product${items.length === 1 ? "" : "s"}`} />
+          <CardBody>
+            <div className="z-stack-sm">
+              {items.map((item) => (
+                <div key={item.product.id} className="z-summary-row">
+                  <span className="z-truncate">
+                    {item.product.name} × {item.quantity}
+                  </span>
+                  <strong>৳{(Number(item.product.price) * item.quantity).toFixed(2)}</strong>
+                </div>
+              ))}
+
+              <div className="z-divider" />
+              <div className="z-summary-row">
+                <span>Subtotal</span>
+                <strong>৳{total.toFixed(2)}</strong>
+              </div>
+              <div className="z-summary-row">
+                <span>Shipping</span>
+                <strong>Free</strong>
+              </div>
+              <div className="z-summary-total">
+                <span>Total</span>
+                <span>৳{total.toFixed(2)}</span>
+              </div>
+              <Button block variant="ghost" href="/cart">
+                Edit cart
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      </div>
+    </Page>
   );
 }

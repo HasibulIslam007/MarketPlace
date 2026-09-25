@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useCart } from "@/context/CartContext";
+import { Page } from "@/components/ui/Page";
+import { LoadingState, ResultState } from "@/components/ui/States";
 import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 import { getOrderStatus } from "@/lib/api";
 
 function PaymentSuccessContent() {
@@ -28,23 +30,31 @@ function PaymentSuccessContent() {
   }, [clearCart, orderId, token]);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12 text-center">
-      <h1 className="text-3xl font-bold mb-4">Payment successful</h1>
-      <p className="mb-2">
-        {isVerified ? "Thank you for your order." : "We are confirming your payment."}
-      </p>
-      {orderId && <p className="text-gray-600 mb-6">Order #{orderId}</p>}
-      <Link href="/products" className="inline-block bg-black text-white rounded px-6 py-2">
-        Continue shopping
-      </Link>
-    </div>
+    <ResultState
+      tone="success"
+      icon="check-circle"
+      title="Payment successful"
+      text={
+        isVerified
+          ? "Thank you for your order — a confirmation is on its way to your inbox."
+          : "We are confirming your payment. This usually takes a few seconds."
+      }
+      meta={orderId ? `Order #${orderId}` : undefined}
+      action={
+        <Link href="/products" className="btn btn-primary">
+          Continue shopping
+        </Link>
+      }
+    />
   );
 }
 
 export default function PaymentSuccessPage() {
   return (
-    <Suspense fallback={<div className="max-w-3xl mx-auto px-4 py-12">Loading payment result...</div>}>
-      <PaymentSuccessContent />
-    </Suspense>
+    <Page narrow>
+      <Suspense fallback={<LoadingState label="Loading payment result…" />}>
+        <PaymentSuccessContent />
+      </Suspense>
+    </Page>
   );
 }

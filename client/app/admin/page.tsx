@@ -2,7 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import AdminGuard from "@/components/AdminGuard";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { Card, CardBody, CardHead } from "@/components/ui/Card";
+import { ConfirmDialog } from "@/components/ui/Dialog";
+import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import Icon, { type IconName } from "@/components/ui/Icon";
+import { Page, PageHeader } from "@/components/ui/Page";
+import { Banner, EmptyState, LoadingState } from "@/components/ui/States";
+import Tabs from "@/components/ui/Tabs";
+import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/context/AuthContext";
+import { StorefrontCustomizer } from "@/components/StorefrontCustomizer";
 import { Category, Product } from "@/types/product";
 
 interface Order {
@@ -26,6 +37,19 @@ interface HomePageSettings {
   id: number;
   heroImageUrl: string | null;
   heroImageAlt: string;
+  heroBadge?: string;
+  heroTitle?: string;
+  heroTitleAccent?: string;
+  heroSubtitle?: string;
+  discountTop?: string;
+  discountValue?: string;
+  discountBottom?: string;
+  card1Icon?: string;
+  card1Title?: string;
+  card1Subtitle?: string;
+  card2Icon?: string;
+  card2Title?: string;
+  card2Subtitle?: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -41,11 +65,51 @@ const EMPTY_HERO_SETTINGS: HomePageSettings = {
   id: 1,
   heroImageUrl: null,
   heroImageAlt: "Featured sneaker",
+  heroBadge: "New Collection 2032",
+  heroTitle: "Step Into",
+  heroTitleAccent: "Your Best",
+  heroSubtitle: "Premium footwear for every step of your journey. From athletic performance to everyday comfort.",
+  discountTop: "UP TO",
+  discountValue: "40%",
+  discountBottom: "OFF",
+  card1Icon: "truck",
+  card1Title: "Free Shipping",
+  card1Subtitle: "Orders over $75",
+  card2Icon: "refresh",
+  card2Title: "Easy Returns",
+  card2Subtitle: "60-day guarantee",
+};
+
+type TabId = "storefront" | "products" | "orders";
+
+const TABS = [
+  { id: "storefront", label: "Storefront" },
+  { id: "products", label: "Products" },
+  { id: "orders", label: "Orders" },
+];
+
+const ORDER_TONES: Record<string, "neutral" | "success" | "warning" | "danger" | "info"> = {
+  pending: "warning",
+  paid: "success",
+  shipped: "info",
+  failed: "danger",
+  cancelled: "danger",
 };
 
 async function readError(response: Response, fallback: string) {
   const data = await response.json().catch(() => null);
   return data?.error || fallback;
+}
+
+function StatCard({ icon, label, value }: { icon: IconName; label: string; value: number }) {
+  return (
+    <div className="z-stat">
+      <span className="z-stat-label">
+        <Icon name={icon} size={16} /> {label}
+      </span>
+      <span className="z-stat-value">{value}</span>
+    </div>
+  );
 }
 
 export default function AdminPage() {
@@ -64,7 +128,9 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [savingHero, setSavingHero] = useState(false);
-  const [heroSaved, setHeroSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>("storefront");
+  const [pendingDelete, setPendingDelete] = useState<Product | null>(null);
+  const toast = useToast();
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -156,9 +222,11 @@ export default function AdminPage() {
         throw new Error(await readError(response, "Unable to add product"));
       }
 
+      const createdName = newProduct.name;
       setNewProduct({ ...EMPTY_PRODUCT });
       setImageFiles([]);
       setImageNames([]);
+      toast.success("Product added", `${createdName} is now in the catalogue.`);
       await loadData();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to add product");
@@ -204,7 +272,6 @@ export default function AdminPage() {
       });
 
       setError("");
-      setHeroSaved(false);
       setHeroImageFile(dataUrl);
       setHeroImageName(file.name);
     } catch (fileError) {
@@ -217,7 +284,6 @@ export default function AdminPage() {
     if (!token) return;
 
     setSavingHero(true);
-    setHeroSaved(false);
     setError("");
 
     try {
@@ -242,6 +308,19 @@ export default function AdminPage() {
         body: JSON.stringify({
           heroImageUrl,
           heroImageAlt: heroSettings.heroImageAlt,
+          heroBadge: heroSettings.heroBadge,
+          heroTitle: heroSettings.heroTitle,
+          heroTitleAccent: heroSettings.heroTitleAccent,
+          heroSubtitle: heroSettings.heroSubtitle,
+          discountTop: heroSettings.discountTop,
+          discountValue: heroSettings.discountValue,
+          discountBottom: heroSettings.discountBottom,
+          card1Icon: heroSettings.card1Icon,
+          card1Title: heroSettings.card1Title,
+          card1Subtitle: heroSettings.card1Subtitle,
+          card2Icon: heroSettings.card2Icon,
+          card2Title: heroSettings.card2Title,
+          card2Subtitle: heroSettings.card2Subtitle,
         }),
       });
 
@@ -252,7 +331,7 @@ export default function AdminPage() {
       setHeroSettings(await response.json());
       setHeroImageFile("");
       setHeroImageName("");
-      setHeroSaved(true);
+      toast.success("Homepage updated", "The hero banner and promotional boxes are now live on the storefront.");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to save homepage settings");
     } finally {
@@ -278,7 +357,9 @@ export default function AdminPage() {
         throw new Error(await readError(response, "Unable to add category"));
       }
 
+      const createdName = newCategory.trim();
       setNewCategory("");
+      toast.success("Category added", `${createdName} is ready to use.`);
       await loadData();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to add category");
@@ -287,13 +368,14 @@ export default function AdminPage() {
     }
   }
 
-  async function handleDeleteProduct(id: number) {
-    if (!token || !window.confirm("Delete this product?")) return;
+  async function confirmDelete() {
+    if (!token || !pendingDelete) return;
 
+    const target = pendingDelete;
     setError("");
 
     try {
-      const response = await fetch(`${API_URL}/api/products/${id}`, {
+      const response = await fetch(`${API_URL}/api/products/${target.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -302,9 +384,13 @@ export default function AdminPage() {
         throw new Error(await readError(response, "Unable to delete product"));
       }
 
+      setPendingDelete(null);
+      toast.success("Product deleted", `${target.name} was removed from the catalogue.`);
       await loadData();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to delete product");
+      const message = requestError instanceof Error ? requestError.message : "Unable to delete product";
+      setError(message);
+      toast.error("Delete failed", message);
     }
   }
 
@@ -324,6 +410,7 @@ export default function AdminPage() {
         throw new Error(await readError(response, "Unable to update order status"));
       }
 
+      toast.success("Order updated", `Order #${orderId} is now ${status}.`);
       await loadData();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to update order status");
@@ -332,204 +419,334 @@ export default function AdminPage() {
 
   return (
     <AdminGuard>
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-12">
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+      <Page>
+        <PageHeader
+          eyebrow="Admin"
+          title="Dashboard"
+          subtitle="Manage the ZMart catalogue, orders and storefront content."
+          actions={
+            <>
+              <Button variant="secondary" href="/" prefetch={false}>
+                <Icon name="home" size={18} /> View store
+              </Button>
+              <Button variant="ghost" onClick={() => void loadData()} disabled={loading}>
+                <Icon name="refresh" size={18} /> Refresh
+              </Button>
+            </>
+          }
+        />
 
-        {error && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        {loading && <p className="text-sm text-gray-600">Loading dashboard...</p>}
+        {error ? (
+          <div className="z-mb-6">
+            <Banner tone="danger">{error}</Banner>
+          </div>
+        ) : null}
 
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Homepage Hero</h2>
-          <form onSubmit={handleSaveHero} className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 border p-4 rounded">
-            <div className="rounded bg-gray-100 overflow-hidden aspect-[4/3]">
-              {(heroImageFile || heroSettings.heroImageUrl) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={heroImageFile || heroSettings.heroImageUrl || ""}
-                  alt={heroSettings.heroImageAlt}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="h-full grid place-items-center text-sm text-gray-500 p-4 text-center">Current product image fallback</div>
-              )}
-            </div>
-            <div className="space-y-3">
-              <p className="text-sm text-gray-600">Choose the image displayed in the red hero card on the public homepage.</p>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={handleHeroImageChange}
-                className="border rounded p-2 w-full"
-              />
-              {heroImageName && <p className="text-xs text-gray-500">Selected: {heroImageName}</p>}
-              <input
-                placeholder="Or paste an image URL"
-                type="url"
-                value={heroSettings.heroImageUrl || ""}
-                onChange={(event) => {
-                  setHeroSaved(false);
-                  setHeroImageFile("");
-                  setHeroSettings({ ...heroSettings, heroImageUrl: event.target.value });
-                }}
-                className="border rounded p-2 w-full"
-              />
-              <input
-                placeholder="Image alt text"
-                value={heroSettings.heroImageAlt}
-                onChange={(event) => {
-                  setHeroSaved(false);
-                  setHeroSettings({ ...heroSettings, heroImageAlt: event.target.value });
-                }}
-                className="border rounded p-2 w-full"
-                maxLength={160}
-                required
-              />
-              <div className="flex items-center gap-3">
-                <button type="submit" disabled={savingHero} className="bg-black text-white rounded px-4 py-2 disabled:opacity-50">
-                  {savingHero ? "Saving..." : "Save Hero Image"}
-                </button>
-                {heroSaved && <span className="text-sm text-green-700">Homepage updated.</span>}
-              </div>
-            </div>
-          </form>
-        </section>
+        <div className="z-cards z-mb-8">
+          <StatCard icon="package" label="Products" value={products.length} />
+          <StatCard icon="clipboard" label="Categories" value={categories.length} />
+          <StatCard icon="users" label="Orders" value={orders.length} />
+          <StatCard
+            icon="check-circle"
+            label="Paid orders"
+            value={orders.filter((order) => order.status === "paid").length}
+          />
+        </div>
 
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Products</h2>
-          <form onSubmit={handleAddCategory} className="flex gap-3 mb-4 border p-4 rounded">
-            <input
-              placeholder="New category name"
-              value={newCategory}
-              onChange={(event) => setNewCategory(event.target.value)}
-              className="border rounded p-2 flex-1"
-              required
-            />
-            <button type="submit" disabled={submitting} className="bg-gray-800 text-white rounded px-4 disabled:opacity-50">
-              Add Category
-            </button>
-          </form>
-          <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 border p-4 rounded">
-            <input
-              placeholder="Name"
-              value={newProduct.name}
-              onChange={(event) => setNewProduct({ ...newProduct, name: event.target.value })}
-              className="border rounded p-2"
-              required
-            />
-            <input
-              placeholder="Price"
-              type="number"
-              min="0"
-              step="0.01"
-              value={newProduct.price}
-              onChange={(event) => setNewProduct({ ...newProduct, price: event.target.value })}
-              className="border rounded p-2"
-              required
-            />
-            <input
-              placeholder="Stock"
-              type="number"
-              min="0"
-              step="1"
-              value={newProduct.stock}
-              onChange={(event) => setNewProduct({ ...newProduct, stock: event.target.value })}
-              className="border rounded p-2"
-              required
-            />
-            <input
-              placeholder="Description"
-              value={newProduct.description}
-              onChange={(event) => setNewProduct({ ...newProduct, description: event.target.value })}
-              className="border rounded p-2"
-              required
-            />
-            <div className="sm:col-span-2 space-y-2">
-              <label className="block text-sm font-medium">Product images (up to 5)</label>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                multiple
-                onChange={handleImageChange}
-                className="block w-full border rounded p-2"
-              />
-              <p className="text-xs text-gray-500">Upload JPG, PNG, WEBP, or GIF files. Maximum 10 MB each.</p>
-              {imageNames.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {imageFiles.map((image, index) => (
-                    <div key={imageNames[index]} className="border rounded p-1">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={image} alt={imageNames[index]} className="w-full h-20 object-cover rounded" />
-                      <p className="text-xs truncate mt-1">{imageNames[index]}</p>
+        <div className="z-toolbar">
+          <Tabs
+            items={TABS}
+            active={activeTab}
+            onChange={(id) => setActiveTab(id as TabId)}
+            ariaLabel="Admin sections"
+          />
+        </div>
+
+        {loading ? <LoadingState label="Loading dashboard…" /> : null}
+
+        {!loading && activeTab === "storefront" ? (
+          <StorefrontCustomizer
+            heroSettings={heroSettings}
+            setHeroSettings={setHeroSettings}
+            heroImageFile={heroImageFile}
+            setHeroImageFile={setHeroImageFile}
+            heroImageName={heroImageName}
+            savingHero={savingHero}
+            onHeroImageChange={handleHeroImageChange}
+            onSaveHero={handleSaveHero}
+          />
+        ) : null}
+
+        {!loading && activeTab === "products" ? (
+          <div className="z-stack">
+            <Card>
+              <CardHead title="Add a product" subtitle="Upload images and set the price, stock and category." />
+              <CardBody>
+                <form onSubmit={handleAddProduct} className="z-form-grid">
+                  <div className="z-form-grid z-form-grid-2">
+                    <Field label="Name" htmlFor="p-name" required>
+                      <Input
+                        id="p-name"
+                        value={newProduct.name}
+                        onChange={(event) => setNewProduct({ ...newProduct, name: event.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Field label="Price (৳)" htmlFor="p-price" required>
+                      <Input
+                        id="p-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newProduct.price}
+                        onChange={(event) => setNewProduct({ ...newProduct, price: event.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Field label="Stock" htmlFor="p-stock" required>
+                      <Input
+                        id="p-stock"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={newProduct.stock}
+                        onChange={(event) => setNewProduct({ ...newProduct, stock: event.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Field label="Category" htmlFor="p-cat">
+                      <Select
+                        id="p-cat"
+                        value={newProduct.categoryId}
+                        onChange={(event) => setNewProduct({ ...newProduct, categoryId: event.target.value })}
+                      >
+                        <option value="">No category</option>
+                        {categories.map((category) => (
+                          <option key={category.id} value={category.id}>{category.name}</option>
+                        ))}
+                      </Select>
+                    </Field>
+                  </div>
+                  <Field label="Description" htmlFor="p-desc" required>
+                    <Textarea
+                      id="p-desc"
+                      rows={3}
+                      value={newProduct.description}
+                      onChange={(event) => setNewProduct({ ...newProduct, description: event.target.value })}
+                      required
+                    />
+                  </Field>
+                  <Field
+                    label="Product images (up to 5)"
+                    htmlFor="p-images"
+                    hint="JPG, PNG, WEBP or GIF · maximum 10 MB each."
+                  >
+                    <input
+                      id="p-images"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple
+                      onChange={handleImageChange}
+                      className="input"
+                    />
+                  </Field>
+
+                  {imageNames.length > 0 ? (
+                    <div className="z-thumbs">
+                      {imageFiles.map((image, index) => (
+                        <span key={imageNames[index]} className="z-thumb" title={imageNames[index]}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={image} alt={imageNames[index]} />
+                        </span>
+                      ))}
                     </div>
-                  ))}
+                  ) : null}
+
+                  <Field label="Legacy image URL (optional)" htmlFor="p-legacy">
+                    <Input
+                      id="p-legacy"
+                      type="url"
+                      placeholder="https://…"
+                      value={newProduct.imageUrl}
+                      onChange={(event) => setNewProduct({ ...newProduct, imageUrl: event.target.value })}
+                    />
+                  </Field>
+
+                  <div className="z-form-actions">
+                    <Button type="submit" loading={submitting}>
+                      {submitting ? "Adding…" : "Add product"}
+                    </Button>
+                  </div>
+                </form>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHead
+                title="Categories"
+                subtitle={`${categories.length} categor${categories.length === 1 ? "y" : "ies"} in use`}
+              />
+              <CardBody>
+                <form onSubmit={handleAddCategory} className="z-row z-mb-6">
+                  <div className="z-flex-1">
+                    <Field label="New category" htmlFor="new-cat" required>
+                      <Input
+                        id="new-cat"
+                        placeholder="e.g. Running"
+                        value={newCategory}
+                        onChange={(event) => setNewCategory(event.target.value)}
+                        required
+                      />
+                    </Field>
+                  </div>
+                  <Button type="submit" variant="secondary" loading={submitting}>
+                    Add category
+                  </Button>
+                </form>
+
+                <div className="z-row">
+                  {categories.length === 0 ? (
+                    <p className="z-muted">No categories yet — add one above.</p>
+                  ) : (
+                    categories.map((category) => (
+                      <Badge key={category.id} tone="soft">
+                        {category.name}
+                        {typeof category._count?.products === "number" ? ` · ${category._count.products}` : ""}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+
+            <Card flush>
+              <CardHead
+                title="Catalogue"
+                subtitle={`${products.length} product${products.length === 1 ? "" : "s"} published`}
+              />
+              {products.length === 0 ? (
+                <div className="card-body">
+                  <EmptyState
+                    compact
+                    icon="package"
+                    title="No products yet"
+                    text="Add your first product using the form above and it will appear here."
+                  />
+                </div>
+              ) : (
+                <div className="table-wrap table-wrap-bare">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th className="z-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map((product) => (
+                        <tr key={product.id}>
+                          <td>
+                            <strong>{product.name}</strong>
+                          </td>
+                          <td>{product.category?.name ?? "—"}</td>
+                          <td>৳{product.price}</td>
+                          <td>{product.stock}</td>
+                          <td className="z-right">
+                            <Button variant="danger" size="sm" onClick={() => setPendingDelete(product)}>
+                              <Icon name="trash" size={16} /> Delete
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-              <input
-                placeholder="Legacy image URL (optional)"
-                type="url"
-                value={newProduct.imageUrl}
-                onChange={(event) => setNewProduct({ ...newProduct, imageUrl: event.target.value })}
-                className="border rounded p-2 w-full"
-              />
-            </div>
-            <select
-              value={newProduct.categoryId}
-              onChange={(event) => setNewProduct({ ...newProduct, categoryId: event.target.value })}
-              className="border rounded p-2"
-            >
-              <option value="">No category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>{category.name}</option>
-              ))}
-            </select>
-            <button type="submit" disabled={submitting} className="sm:col-span-2 bg-black text-white rounded p-2 disabled:opacity-50">
-              {submitting ? "Adding..." : "Add Product"}
-            </button>
-          </form>
-
-          <div className="space-y-2">
-            {products.length === 0 && !loading && <p className="text-sm text-gray-600">No products found.</p>}
-            {products.map((product) => (
-              <div key={product.id} className="flex justify-between items-center border-b pb-2 gap-4">
-                <span>
-                  {product.name} — ৳{product.price} ({product.stock} in stock)
-                  {product.category && <span className="text-sm text-gray-500"> · {product.category.name}</span>}
-                </span>
-                <button onClick={() => handleDeleteProduct(product.id)} className="text-red-500 text-sm" type="button">
-                  Delete
-                </button>
-              </div>
-            ))}
+            </Card>
           </div>
-        </section>
+        ) : null}
 
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Orders</h2>
-          <div className="space-y-3">
-            {orders.length === 0 && !loading && <p className="text-sm text-gray-600">No orders found.</p>}
-            {orders.map((order) => (
-              <div key={order.id} className="border rounded p-4">
-                <p className="font-semibold">Order #{order.id} — {order.user.name} ({order.user.email})</p>
-                <p className="text-sm text-gray-600">
-                  {order.items.map((item) => `${item.quantity}x ${item.product.name}`).join(", ")}
-                </p>
-                <p className="mt-1">Total: ৳{order.total}</p>
-                <select
-                  value={order.status}
-                  onChange={(event) => handleStatusChange(order.id, event.target.value)}
-                  className="mt-2 border rounded p-1"
-                >
-                  <option value="pending">pending</option>
-                  <option value="paid">paid</option>
-                  <option value="shipped">shipped</option>
-                  <option value="failed">failed</option>
-                  <option value="cancelled">cancelled</option>
-                </select>
+        {!loading && activeTab === "orders" ? (
+          <Card flush>
+            <CardHead
+              title="Orders"
+              subtitle={`${orders.length} order${orders.length === 1 ? "" : "s"} placed`}
+            />
+            {orders.length === 0 ? (
+              <div className="card-body">
+                <EmptyState
+                  compact
+                  icon="clipboard"
+                  title="No orders yet"
+                  text="Orders placed by customers will appear here with their current status."
+                />
               </div>
-            ))}
-          </div>
-        </section>
-      </div>
+            ) : (
+              <div className="table-wrap table-wrap-bare">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Order</th>
+                      <th>Customer</th>
+                      <th>Items</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((order) => (
+                      <tr key={order.id}>
+                        <td>
+                          <strong>#{order.id}</strong>
+                        </td>
+                        <td>
+                          {order.user.name}
+                          <div className="z-hint">{order.user.email}</div>
+                        </td>
+                        <td>{order.items.map((item) => `${item.quantity}× ${item.product.name}`).join(", ")}</td>
+                        <td>৳{order.total}</td>
+                        <td>
+                          <div className="z-row">
+                            <Badge tone={ORDER_TONES[order.status] ?? "neutral"}>{order.status}</Badge>
+                            <Select
+                              className="z-select-sm"
+                              value={order.status}
+                              onChange={(event) => handleStatusChange(order.id, event.target.value)}
+                              aria-label={`Update status for order ${order.id}`}
+                            >
+                              <option value="pending">pending</option>
+                              <option value="paid">paid</option>
+                              <option value="shipped">shipped</option>
+                              <option value="failed">failed</option>
+                              <option value="cancelled">cancelled</option>
+                            </Select>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        ) : null}
+      </Page>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={confirmDelete}
+        title="Delete product"
+        text={
+          pendingDelete
+            ? `“${pendingDelete.name}” will be permanently removed from the catalogue. This cannot be undone.`
+            : undefined
+        }
+        confirmLabel="Delete product"
+      />
     </AdminGuard>
   );
 }

@@ -1,45 +1,115 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Button from "@/components/ui/Button";
+import { Card, CardBody, CardHead } from "@/components/ui/Card";
+import { Field, Input } from "@/components/ui/Field";
+import { Banner } from "@/components/ui/States";
+import { useToast } from "@/components/ui/Toast";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const toast = useToast();
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setError("");
+    setLoading(true);
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
-    });
+    try {
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+      const data = await response.json();
 
-    const data = await res.json();
+      if (!response.ok) {
+        setError(data.error || "Something went wrong");
+        return;
+      }
 
-    if (!res.ok) {
-      setError(data.error || "Something went wrong");
-      return;
+      toast.success("Account created", "Sign in with your new credentials to continue.");
+      router.push("/login");
+    } catch {
+      setError("We could not create your account. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    router.push("/login");
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 py-12">
-      <h1 className="text-2xl font-bold mb-6">Sign Up</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full border rounded p-2" required />
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded p-2" required />
-        <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border rounded p-2" required />
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-        <button type="submit" className="w-full bg-black text-white rounded p-2">Sign Up</button>
-      </form>
+    <div className="z-auth">
+      <div className="z-auth-card">
+        <Card>
+          <CardHead title="Create your account" subtitle="Join ZMart to check out faster and track orders." />
+          <CardBody>
+            <form className="z-form-grid" onSubmit={handleSubmit}>
+              <Field label="Full name" htmlFor="name" required>
+                <Input
+                  id="name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Jane Doe"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  required
+                />
+              </Field>
+
+              <Field label="Email address" htmlFor="email" required>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                />
+              </Field>
+
+              <Field label="Password" htmlFor="password" hint="Use at least 8 characters." required>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  minLength={8}
+                  required
+                />
+              </Field>
+
+              {error ? <Banner tone="danger">{error}</Banner> : null}
+
+              <Button type="submit" size="lg" block loading={loading}>
+                {loading ? "Creating account…" : "Create account"}
+              </Button>
+            </form>
+
+            <p className="z-auth-foot">
+              Already have an account?{" "}
+              <Link href="/login" className="z-link">
+                Sign in
+              </Link>
+            </p>
+          </CardBody>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { getCategories, getProducts } from "@/lib/api";
+import { Breadcrumbs, Page, PageHeader } from "@/components/ui/Page";
+import ProductCard from "@/components/ui/ProductCard";
+import { EmptyState } from "@/components/ui/States";
+import Tabs, { type TabItem } from "@/components/ui/Tabs";
 
 export default async function ProductsPage({
   searchParams,
@@ -8,52 +12,55 @@ export default async function ProductsPage({
 }) {
   const { category } = await searchParams;
   const [products, categories] = await Promise.all([getProducts(category), getCategories()]);
+  const activeCategory = categories.find((item) => item.slug === category);
+
+  const tabItems: TabItem[] = [
+    { id: "all", label: "All products" },
+    ...categories.map((item) => ({ id: item.slug, label: item.name })),
+  ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold">{category ? "Products in category" : "All Products"}</h1>
-        <nav className="flex flex-wrap gap-2 text-sm" aria-label="Product categories">
-          <Link href="/products" className={`rounded border px-3 py-1 ${!category ? "bg-black text-white" : ""}`}>
-            All
+    <Page>
+      <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Products" }]} />
+
+      <PageHeader
+        eyebrow="Catalogue"
+        title={activeCategory ? activeCategory.name : "All products"}
+        subtitle={`${products.length} product${products.length === 1 ? "" : "s"} available`}
+        actions={
+          <Link href="/search" className="btn btn-secondary">
+            Search catalogue
           </Link>
-          {categories.map((item) => (
-            <Link
-              key={item.id}
-              href={`/products?category=${encodeURIComponent(item.slug)}`}
-              className={`rounded border px-3 py-1 ${category === item.slug ? "bg-black text-white" : ""}`}
-            >
-              {item.name}
-            </Link>
-          ))}
-        </nav>
+        }
+      />
+
+      <div className="z-toolbar">
+        <Tabs
+          items={tabItems}
+          active={category ?? "all"}
+          ariaLabel="Filter by category"
+          hrefFor={(id) => (id === "all" ? "/products" : `/products?category=${encodeURIComponent(id)}`)}
+        />
       </div>
+
       {products.length === 0 ? (
-        <p>No products yet.</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {products.map((product) => (
-            <Link
-              key={product.id}
-              href={`/products/${product.id}`}
-              className="border rounded-lg p-4 hover:shadow-md transition"
-            >
-              {(product.images?.[0]?.url || product.imageUrl) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={product.images?.[0]?.url || product.imageUrl || ""} alt={product.name} className="w-full h-48 object-cover rounded mb-4" />
-              ) : (
-                <div className="w-full h-48 bg-gray-100 rounded mb-4 flex items-center justify-center text-sm text-gray-500">
-                  No image
-                </div>
-              )}
-              <h2 className="font-semibold">{product.name}</h2>
-              {product.category && <p className="text-xs text-gray-500 mt-1">{product.category.name}</p>}
-              <p className="text-sm text-gray-600">{product.description}</p>
-              <p className="mt-2 font-bold">৳{product.price}</p>
+        <EmptyState
+          icon="package"
+          title="No products in this category"
+          text="Try another category or browse the full catalogue to find what you need."
+          action={
+            <Link href="/products" className="btn btn-secondary">
+              View all products
             </Link>
+          }
+        />
+      ) : (
+        <div className="z-cards">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       )}
-    </div>
+    </Page>
   );
 }
