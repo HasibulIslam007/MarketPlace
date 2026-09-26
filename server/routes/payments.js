@@ -5,8 +5,10 @@ const prisma = require("../prismaClient");
 
 const router = express.Router();
 
-const CLIENT_URL = (process.env.CLIENT_URL || "http://localhost:3000").replace(/\/$/, "");
-const SERVER_PUBLIC_URL = (process.env.SERVER_PUBLIC_URL || "http://localhost:5000").replace(/\/$/, "");
+const { getClientUrl, getServerPublicUrl } = require("../lib/clientUrl");
+
+const CLIENT_URL = getClientUrl();
+const SERVER_PUBLIC_URL = getServerPublicUrl();
 const STORE_ID = process.env.SSLCOMMERZ_STORE_ID;
 const STORE_PASSWORD = process.env.SSLCOMMERZ_STORE_PASSWORD;
 const IS_LIVE = process.env.SSLCOMMERZ_IS_LIVE === "true";

@@ -4,9 +4,19 @@ const prisma = require("../prismaClient");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
 const SSLCommerzPayment = require("sslcommerz-lts");
 
+const { getClientUrl, getServerPublicUrl } = require("../lib/clientUrl");
+
 const store_id = process.env.SSLCZ_STORE_ID;
 const store_passwd = process.env.SSLCZ_STORE_PASSWORD;
 const is_live = false; // sandbox mode
+
+function clientUrl() {
+  return getClientUrl();
+}
+
+function serverPublicUrl() {
+  return getServerPublicUrl();
+}
 
 // CREATE ORDER + START PAYMENT
 router.post("/", requireAuth, async (req, res) => {
@@ -38,9 +48,9 @@ router.post("/", requireAuth, async (req, res) => {
       total_amount: total,
       currency: "BDT",
       tran_id,
-      success_url: `${process.env.SERVER_URL}/api/orders/payment-success`,
-      fail_url: `${process.env.SERVER_URL}/api/orders/payment-fail`,
-      cancel_url: `${process.env.SERVER_URL}/api/orders/payment-cancel`,
+      success_url: `${serverPublicUrl()}/api/orders/payment-success`,
+      fail_url: `${serverPublicUrl()}/api/orders/payment-fail`,
+      cancel_url: `${serverPublicUrl()}/api/orders/payment-cancel`,
       shipping_method: "Courier",
       product_name: "Store order",
       product_category: "General",
@@ -77,11 +87,11 @@ router.post("/payment-success", async (req, res) => {
 
     if (validation.status === "VALID" || validation.status === "VALIDATED") {
       await prisma.order.updateMany({ where: { tranId: tran_id }, data: { status: "paid" } });
-      return res.redirect(`${process.env.CLIENT_URL}/order-confirmation?status=success`);
+      return res.redirect(`${clientUrl()}/order-confirmation?status=success`);
     }
-    res.redirect(`${process.env.CLIENT_URL}/order-confirmation?status=failed`);
+    res.redirect(`${clientUrl()}/order-confirmation?status=failed`);
   } catch (err) {
-    res.redirect(`${process.env.CLIENT_URL}/order-confirmation?status=failed`);
+    res.redirect(`${clientUrl()}/order-confirmation?status=failed`);
   }
 });
 
@@ -89,14 +99,14 @@ router.post("/payment-success", async (req, res) => {
 router.post("/payment-fail", async (req, res) => {
   const { tran_id } = req.body;
   await prisma.order.updateMany({ where: { tranId: tran_id }, data: { status: "failed" } });
-  res.redirect(`${process.env.CLIENT_URL}/order-confirmation?status=failed`);
+  res.redirect(`${clientUrl()}/order-confirmation?status=failed`);
 });
 
 // CANCEL
 router.post("/payment-cancel", async (req, res) => {
   const { tran_id } = req.body;
   await prisma.order.updateMany({ where: { tranId: tran_id }, data: { status: "cancelled" } });
-  res.redirect(`${process.env.CLIENT_URL}/order-confirmation?status=cancelled`);
+  res.redirect(`${clientUrl()}/order-confirmation?status=cancelled`);
 });
 
 // GET all orders (admin only)
