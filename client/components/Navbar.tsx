@@ -70,7 +70,7 @@ export default function Navbar() {
 
   return (
     <header className="site-header">
-      <div className="promo-bar">Free shipping on orders over $75 | Use code ZMART20 for 20% off your first order</div>
+      <div className="promo-bar">Free shipping on orders over 2000 Taka | Use code ZMART20 for 20% off your first order</div>
       <nav className="main-nav" aria-label="Main navigation">
         <Link href="/" className="brand" aria-label="ZMart home" onClick={closeMenu}>
           <span className="brand-mark">ϟ</span>
